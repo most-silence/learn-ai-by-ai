@@ -47,7 +47,6 @@ for d in range(1,11):
     scores_d = cross_val_score(DecisionTreeClassifier(max_depth = d, random_state=42), X_train, y_train, cv=5)
     # print("depth_max=d, d,",d) # print 字符与数字等参数交替的写法忘记了
     print(f"depth={d} mean={scores_d.mean():.4f} std={scores_d.std():.4f}")
-    print(scores_d.mean(), scores_d.std())
 
 # ── 任务 4：思考题（不写代码）───────────────────────────
 # 5 折 CV 里，训练集的每一份数据当过几次"考试"、几次"教材"？5次，5次

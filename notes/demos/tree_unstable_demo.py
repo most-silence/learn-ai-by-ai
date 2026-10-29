@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 阶段 2 · 教学演示：单棵决策树为什么会"背名单"、为什么"不稳"
-不是练习，是给第 4 课做铺垫的可复现实验。直接 `python notes/demo_phase2_tree_unstable.py`
+不是练习，是给第 4 课做铺垫的可复现实验。直接 `python notes/demos/tree_unstable_demo.py`（在仓库根目录运行）
 
 四个实验：
   1. 叶子解剖：满树 170 个叶子里，70 个只代表 1 个人

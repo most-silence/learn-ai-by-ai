@@ -1,6 +1,6 @@
 # 阶段 2 · 第二课教材：模型的成绩单（评估指标）+ 治过拟合第一刀
 
-> 配套练习：`ex_phase2_lesson2_metrics_overfit.py` · 前置：ex_phase2_lesson1（第一个模型）已跑通
+> 配套练习：`exercises/phase2/lesson2_metrics_overfit.py` · 前置：lesson1（第一个模型）已跑通
 > 新 API 都在 `sklearn.metrics` 里
 
 ---

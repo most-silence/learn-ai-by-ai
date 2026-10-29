@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>随机森林速查卡</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  body { max-width: 54rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; }
+  @media (max-width: 40rem) { .grid2 { grid-template-columns: 1fr; } }
+  .kv { margin: 0 0 .8rem; font-size: .9rem; }
+  .kv dt { font-family: var(--mono); font-size: .78rem; color: var(--accent); margin-bottom: .1rem; }
+  .kv dd { margin: 0 0 .7rem; }
+</style>
+</head>
+<body>
+
+<p class="lesson-kicker">速查卡 · Reference</p>
+<h1>随机森林速查卡</h1>
+<p class="subtitle">参数、默认值、诊断信号、常见误解</p>
+<p class="meta">
+  <span>配套：<a href="../lessons/0001-bagging-only-fixes-variance.html">第 4 课补充</a></span>
+  <span>2026-10-29</span>
+</p>
+
+<h2>一行定义</h2>
+<pre><code>森林 = 很多棵"看不同数据 + 看不同特征"的深树，投票定结论</code></pre>
+
+<h2>两个随机（森林的全部秘密）</h2>
+<table>
+  <tr><th>随机</th><th>做法</th><th>效果</th></tr>
+  <tr><td>数据随机<br>bootstrap</td><td>有放回抽 N 个样本</td><td>每棵看到约 <strong>63.2%</strong> 的不同样本；剩下 36.8% 是 OOB</td></tr>
+  <tr><td>特征随机<br>max_features</td><td>每次分叉只从随机子集挑最优</td><td>分类默认 <code>sqrt</code>（6 特征 → 每次只看 2 个）</td></tr>
+</table>
+
+<div class="callout">
+  <span class="label">⚠ 最常见的混淆</span>
+  <p>"两个随机"<strong>不是</strong> <code>random_state</code> 的两个位置。前者是<strong>机制</strong>，后者是<strong>控制机制怎么抽的开关</strong>。</p>
+</div>
+
+<h2>关键参数</h2>
+<div class="grid2">
+<dl class="kv">
+  <dt>n_estimators</dt>
+  <dd>树的数量，默认 100。<strong>越多越稳，但有边际递减</strong>：n=10 → 0.8024，n=50 → 0.8038，n=500 → 0.8010。不会因为树多而过拟合。</dd>
+
+  <dt>max_depth</dt>
+  <dd>默认 <code>None</code> = 每棵树长到底。<strong>动它是在调 strength，不是 correlation</strong>（限深后 ρ 反而升高）。</dd>
+
+  <dt>max_features</dt>
+  <dd>默认 <code>sqrt</code>（分类）/ <code>1.0</code>（回归）。调小 → 树更多样但更弱；调大 → 更准但更像。<strong>这是 Breiman 说森林唯一敏感的旋钮。</strong></dd>
+
+  <dt>oob_score</dt>
+  <dd>默认 <code>False</code>。设 <code>True</code> 可白拿一个验证分数（用每棵树没抽到的 36.8%）。实测 OOB 0.8090 vs test 0.7989，偏差小。</dd>
+
+  <dt>bootstrap</dt>
+  <dd>默认 <code>True</code>。关掉就没有"数据随机"，只剩特征随机，不再是随机森林。</dd>
+
+  <dt>random_state</dt>
+  <dd>控制上面两处随机。<strong>20 个种子下极差仅 1.68pp</strong>（单棵满树 2.23pp）—— 森林比单树稳。</dd>
+</dl>
+</div>
+
+<h2>诊断表：看到什么数字 → 想到什么</h2>
+<table>
+  <tr><th>现象</th><th>含义</th><th>怎么办</th></tr>
+  <tr><td>train 0.98 / test 0.75</td><td>满树重度过拟合</td><td>限深，或换森林</td></tr>
+  <tr><td>森林 train 和单树 train <strong>一样</strong></td><td>正常。森林不减少背题</td><td>别指望它降 train</td></tr>
+  <tr><td>森林单棵 test 平均 <strong>低于</strong> 单树</td><td>正常。每棵只用 63.2% 数据</td><td>看投票结果，不看单棵</td></tr>
+  <tr><td>投票 ≈ 单棵平均</td><td>树之间太像，投票无效</td><td>调小 <code>max_features</code></td></tr>
+  <tr><td>森林输给限深单树</td><td>数据小 + 方差本来就低</td><td>直接用单树，别硬上森林</td></tr>
+</table>
+
+<h2>bagging 净增益 vs 深度（Titanic 实测）</h2>
+<table>
+  <caption>重复 CV 5×10</caption>
+  <tr><th>max_depth</th><th class="num-col">单树</th><th class="num-col">森林</th><th class="num-col">净增益</th></tr>
+  <tr><td>None</td><td class="num-col">0.7656</td><td class="num-col">0.8017</td><td class="num-col hi">+3.61pp</td></tr>
+  <tr><td>8</td><td class="num-col">0.8007</td><td class="num-col">0.8267</td><td class="num-col">+2.60pp</td></tr>
+  <tr><td>5</td><td class="num-col">0.8096</td><td class="num-col">0.8260</td><td class="num-col">+1.64pp</td></tr>
+  <tr><td>3</td><td class="num-col">0.8277</td><td class="num-col">0.8063</td><td class="num-col down">−2.14pp</td></tr>
+</table>
+<p><strong>口诀：树越深 bagging 越赚，树越浅 bagging 越亏。</strong>因为 bagging 只削方差，浅树本来就没有方差。</p>
+
+<h2>三段对比记忆（同一份数据）</h2>
+<table>
+  <tr><th>模型</th><th class="num-col">train</th><th class="num-col">test</th><th class="num-col">CV</th><th>它的病</th></tr>
+  <tr><td>满树单棵</td><td class="num-col">0.9789</td><td class="num-col">0.7542</td><td class="num-col">0.7656</td><td>方差大（抖 2.2pp）</td></tr>
+  <tr><td>d=3 单棵</td><td class="num-col">0.8343</td><td class="num-col">0.7989</td><td class="num-col hi">0.8277</td><td>方差为零，偏差略高</td></tr>
+  <tr><td>森林（满树）</td><td class="num-col">0.9789</td><td class="num-col">0.7989</td><td class="num-col">0.8017</td><td>单棵太弱</td></tr>
+</table>
+
+<h2>常见误解清单</h2>
+<ul class="rules">
+  <li><strong>❌ 森林一定比单树强。</strong>小数据上常输。Titanic：0.8017 vs 0.8277。</li>
+  <li><strong>❌ 森林靠减少背题取胜。</strong>train 分数和满树完全相同。</li>
+  <li><strong>❌ 限深让树更不像。</strong>ρ 从 0.596 升到 0.688。</li>
+  <li><strong>❌ 树越多方差越小，能降到零。</strong>下界是 ρσ²，实测 0.1441 就到底了（ρ=0.596 太高）。</li>
+  <li><strong>❌ feature_importances_ 是"真实重要性"。</strong>它基于训练集、偏向高基数特征，且高度相关的特征会互相分票（Fare 和 Pclass）。</li>
+</ul>
+
+<h2>最小可用代码</h2>
+<pre><code>from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
+
+model = RandomForestClassifier(
+    n_estimators=100,
+    max_features='sqrt',   # 默认
+    max_depth=None,        # 小数据上建议改 5~8
+    oob_score=True,
+    random_state=42,
+)
+
+# 比较模型一律用重复 CV（单次 CV 噪声 ±2pp）
+cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=0)
+scores = cross_val_score(model, X_train, y_train, cv=cv)
+print(f"CV mean={scores.mean():.4f} std={scores.std():.4f}")
+
+model.fit(X_train, y_train)
+print(f"OOB={model.oob_score_:.4f} test={model.score(X_test, y_test):.4f}")
+print(dict(zip(X.columns, model.feature_importances_)))</code></pre>
+
+<h2>该查哪儿</h2>
+<ul>
+  <li>参数默认值 → <a href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html">sklearn API 文档</a></li>
+  <li>为什么有效 → <a href="https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm">Breiman &amp; Cutler 官方说明</a></li>
+  <li>方差上界推导 → <a href="https://www.stat.berkeley.edu/~breiman/randomforest2001.pdf">Breiman 2001 论文</a></li>
+</ul>
+
+<footer>
+  <p><a href="../lessons/0001-bagging-only-fixes-variance.html">← 回到第 4 课补充</a> · <a href="../RESOURCES.md">全部资源</a></p>
+</footer>
+
+</body>
+</html>

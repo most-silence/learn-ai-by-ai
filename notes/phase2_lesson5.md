@@ -1,6 +1,6 @@
 # 阶段 2 · 第五课教材：回归——当答案是数字
 
-> 配套练习：`ex_phase2_lesson5_regression.py` · 数据：`data/tips.csv`（244 张真实餐馆账单）
+> 配套练习：`exercises/phase2/lesson5_regression.py` · 数据：`data/tips.csv`（244 张真实餐馆账单）
 > 新 API：`sklearn.linear_model.LinearRegression`、`sklearn.metrics.r2_score`
 
 ---

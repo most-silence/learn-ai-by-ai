@@ -1,6 +1,6 @@
 # 阶段 2 · 机器学习第一课教材：你的第一个会预测的模型
 
-> 配套练习：`ex_phase2_lesson1_decision_tree.py`（先读教材再做题）
+> 配套练习：`exercises/phase2/lesson1_decision_tree.py`（先读教材再做题）
 > 数据：`data/titanic_clean.csv`（你昨天亲手清洗的表：891 行 × 11 列，零缺失）
 > 预计：教材 10 分钟 + 练习 20-30 分钟
 

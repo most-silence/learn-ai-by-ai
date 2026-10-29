@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>森林为什么默认满树会输 —— 第 4 课补充</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+
+<p class="lesson-kicker">机器学习 · 第 4 课补充</p>
+<h1>森林为什么默认满树会输</h1>
+<p class="subtitle">Bagging 只治方差，不治偏差 —— 而你的 d3 树方差本来就是零</p>
+
+<p class="meta">
+  <span>2026-10-29</span>
+  <span>Titanic · 712 训练 / 179 测试</span>
+  <span>全部数字可复现</span>
+</p>
+
+<h2><span class="num">§0</span>你的问题</h2>
+
+<div class="quote">
+为什么森林默认满树效果差，限制深度后才追上正经正则化的 d3 树？
+</div>
+
+<p>这个问题问得很好，因为它戳中了随机森林最容易被误解的地方。教材和教程里几乎都在说"森林比单树强"，但你手上这份数据说：</p>
+
+<table>
+  <caption>重复交叉验证（5 折 × 10 次 = 50 个分数）</caption>
+  <tr><th>模型</th><th class="num-col">CV mean</th></tr>
+  <tr><td>单棵 d=3 树</td><td class="num-col hi">0.8277</td></tr>
+  <tr><td>森林（默认，满树）</td><td class="num-col">0.8017</td></tr>
+  <tr><td>森林 max_depth=5</td><td class="num-col">0.8260</td></tr>
+  <tr><td>森林 max_depth=3</td><td class="num-col">0.8063</td></tr>
+</table>
+
+<p>注意最后一行：<strong>森林限深到 3，反而比单棵 d=3 树更差</strong>（0.8063 vs 0.8277）。所以"限深就变好"也不是普遍规律，它也有失效的时候。这一课要把这两件事一次说清。</p>
+
+<h2><span class="num">§1</span>一句话答案</h2>
+
+<div class="callout">
+  <span class="label">核心</span>
+  <p><strong>Bagging 只能削掉方差，削不掉偏差。</strong>满树单棵的毛病是"方差大"（换个种子就抖），所以 100 棵投票能大幅补救；d=3 树已经把方差压到零了，投票没有东西可以削，却要先付一笔"每棵树只看 63% 数据"的成本 —— 净亏。</p>
+</div>
+
+<p>下面用你自己的数据把这句话拆开。</p>
+
+<h2><span class="num">§2</span>Breiman 的两个旋钮</h2>
+
+<p>随机森林的原始定义里，森林的错误率只由两件事决定。这是 Breiman 与 Cutler 在伯克利官方文档里的原话：</p>
+
+<div class="quote">
+"the forest error rate depends on two things: <strong>The <em>correlation</em> between any two trees</strong> in the forest. Increasing the correlation increases the forest error rate. <strong>The <em>strength</em> of each individual tree</strong> ... Increasing the strength of the individual trees decreases the forest error rate."
+<div style="font-style:normal;font-size:.85rem;margin-top:.6rem">
+— <a href="https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm">Breiman &amp; Cutler, <em>Random Forests</em> · Classification Description</a>
+</div>
+</div>
+
+<p>翻成人话：<strong>每棵树越准（strength ↑）越好，树之间越像（correlation ↑）越糟。</strong></p>
+
+<p>而这两件事是<strong>互相拉扯</strong>的。你把树练得越深越准，它们对同一批数据的"看法"就越趋同，相关性也跟着上去。Breiman 紧接着写：</p>
+
+<div class="quote">
+"Reducing m reduces both the correlation and the strength. Increasing it increases both. Somewhere in between is an 'optimal' range of m."
+</div>
+
+<p>这里说的是 <code>max_features</code>，但同一个拉扯关系适用于深度。所以森林不是一个"拧上就变强"的开关，它是<strong>两个旋钮要一起调</strong>的东西。</p>
+
+<h2><span class="num">§3</span>满树森林的全貌</h2>
+
+<p>先把默认配置（<code>n_estimators=100</code>，深度不限）拆到零件级：</p>
+
+<table>
+  <caption>满树森林的解剖</caption>
+  <tr><th>指标</th><th class="num-col">数值</th><th>含义</th></tr>
+  <tr><td>森林 train</td><td class="num-col">0.9789</td><td>和满树单棵<strong>一模一样</strong></td></tr>
+  <tr><td>森林 test</td><td class="num-col">0.7989</td><td>比满树单棵 0.7542 高 4.5pp</td></tr>
+  <tr><td>单棵树 train（平均）</td><td class="num-col">0.9001</td><td>每棵都在背题</td></tr>
+  <tr><td>单棵树 test（平均）</td><td class="num-col">0.7672</td><td><strong>单挑连 0.77 都不到</strong></td></tr>
+  <tr><td>单棵树 test（最差）</td><td class="num-col">0.6872</td><td>有一棵烂到 68.7%</td></tr>
+  <tr><td>投票后</td><td class="num-col hi">0.7989</td><td>比单棵平均高 3.2pp</td></tr>
+</table>
+
+<p>读这张表要注意两件事：</p>
+
+<ul class="rules">
+  <li><strong>森林完全没有减少背题。</strong>train 分数 .9789 和满树单棵一字不差。它没有让树"学得更克制"，只是让 100 个背题的人一起投票。</li>
+  <li><strong>单棵树烂得惊人。</strong>平均 0.7672，最差 0.6872。这就是"一路分裂到底"的代价 —— 但也正是这种烂，给了投票发挥的空间。</li>
+</ul>
+
+<h2><span class="num">§4</span>反直觉：限深之后，树反而<em>更像了</em></h2>
+
+<p>按 §2 的逻辑，你会期待"限深 → 树更不像 → 相关性下降 → 森林变好"。<strong>测出来的结果不是这样。</strong></p>
+
+<table>
+  <caption>树间相关系数 ρ（100 棵树两两预测的相关，取平均）</caption>
+  <tr><th>max_depth</th><th class="num-col">ρ</th><th class="num-col">森林单棵 test</th><th class="num-col">投票</th><th class="num-col">投票增益</th></tr>
+  <tr><td>None（满树）</td><td class="num-col hi">0.596</td><td class="num-col">0.7672</td><td class="num-col">0.7989</td><td class="num-col">+3.17pp</td></tr>
+  <tr><td>6</td><td class="num-col">0.693</td><td class="num-col">0.7835</td><td class="num-col">0.7933</td><td class="num-col">+0.98pp</td></tr>
+  <tr><td>5</td><td class="num-col hi">0.688</td><td class="num-col">0.7818</td><td class="num-col">0.8045</td><td class="num-col">+2.26pp</td></tr>
+  <tr><td>4</td><td class="num-col">0.607</td><td class="num-col">0.7672</td><td class="num-col">0.7933</td><td class="num-col">+2.61pp</td></tr>
+  <tr><td>3</td><td class="num-col">0.563</td><td class="num-col">0.7541</td><td class="num-col">0.7765</td><td class="num-col">+2.24pp</td></tr>
+</table>
+
+<p><strong>ρ 从 0.596 升到 0.688（depth=5）。树变得更像了。</strong>可是森林照样变好（CV 0.8017 → 0.8260）。</p>
+
+<div class="callout">
+  <span class="label">推翻你的直觉</span>
+  <p>森林变好<strong>不是因为降低了相关性</strong>。相关性没降，反而升了。它变好是因为另一件事：<strong>每棵树自己变准了</strong>（单棵 test 0.7672 → 0.7818）。</p>
+</div>
+
+<p>Breiman 的两个旋钮里，限深动的是 <strong>strength</strong> 这个旋钮，不是 correlation。你之前以为是前者，其实是后者在起作用。</p>
+
+<h2><span class="num">§5</span>真正的答案：d3 树的方差已经是零</h2>
+
+<p>Bagging 的机制是"用平均消掉随机性"。那么关键问题就变成：<strong>单棵树到底有多随机？</strong></p>
+
+<table>
+  <caption>单棵决策树换 20 个随机种子，test 分数的波动</caption>
+  <tr><th>max_depth</th><th class="num-col">均值</th><th class="num-col">标准差</th><th class="num-col">极差</th></tr>
+  <tr><td>None（满树）</td><td class="num-col">0.7503</td><td class="num-col">0.0066</td><td class="num-col">0.0223</td></tr>
+  <tr><td>8</td><td class="num-col">0.7926</td><td class="num-col">0.0064</td><td class="num-col">0.0223</td></tr>
+  <tr><td>5</td><td class="num-col hi">0.8045</td><td class="num-col hi">0.0000</td><td class="num-col hi">0.0000</td></tr>
+  <tr><td>3</td><td class="num-col hi">0.7989</td><td class="num-col hi">0.0000</td><td class="num-col hi">0.0000</td></tr>
+  <tr><td>2</td><td class="num-col">0.7654</td><td class="num-col">0.0000</td><td class="num-col">0.0000</td></tr>
+</table>
+
+<p><strong>depth=3 和 depth=5 的标准差是 0.0000 —— 一模一样，换种子一点都不抖。</strong></p>
+
+<p>原因你在第 3 课已经学过：浅树提前收手，前几层的切点和满树完全相同，且 <code>random_state</code> 对单棵树只影响"同分切点选哪个"，浅树根本走不到那些位置。所以：</p>
+
+<div class="callout">
+  <span class="label">关键</span>
+  <p>d=3 树的方差已经压到<strong>零</strong>。Bagging 的全部本事就是"把方差压小"—— 面对一个已经是零的东西，它无事可做，却仍然要付代价。</p>
+</div>
+
+<h2><span class="num">§6</span>代价：每棵树只看 63.2% 的数据</h2>
+
+<p>Bagging 的代价不是零。每棵树从 712 人里<strong>有放回</strong>抽 712 次，重复的要去掉：</p>
+
+<pre><code>一棵树抽到的不重复样本 = 712 × (1 − (1−1/712)^712) ≈ 450 人 = 63.2%
+两棵树样本交集         ≈ 0.632² = 40.0%</code></pre>
+
+<p>所以森林里的每棵树，<strong>都比一棵用全量数据训练的树更弱</strong>。这不是猜测，实测：</p>
+
+<table>
+  <caption>同样的 d=3 深度，数据量对准确率的影响</caption>
+  <tr><th>训练人数</th><th class="num-col">单棵 d=3 test</th></tr>
+  <tr><td>106（15%）</td><td class="num-col">0.7821</td></tr>
+  <tr><td>356（50%）</td><td class="num-col">0.7955</td></tr>
+  <tr><td>712（100%）</td><td class="num-col hi">0.7989</td></tr>
+</table>
+
+<p>数值差异不大，但方向明确：<strong>数据少 → 单棵更弱</strong>。森林里的树永远只能用 63.2%，所以它天生弱一点。</p>
+
+<p>于是森林 d=3 的账变成这样：</p>
+
+<table>
+  <caption>森林 d=3 的收支</caption>
+  <tr><th>项</th><th class="num-col">数值</th></tr>
+  <tr><td>收入：投票抵消一点残余随机</td><td class="num-col">+2.24pp</td></tr>
+  <tr><td>支出：每棵只看到 63.2% 数据</td><td class="num-col">− 基础变弱</td></tr>
+  <tr><td><strong>净结果</strong></td><td class="num-col hi">0.8063（输给单棵 0.8277）</td></tr>
+</table>
+
+<div class="callout">
+  <span class="label">一句话</span>
+  <p>深度限制<strong>已经</strong>把方差治好了。这时再上 bagging，等于<strong>为一个已痊愈的病人动手术</strong> —— 只承担风险，不获得收益。</p>
+</div>
+
+<h2><span class="num">§7</span>交叉点：哪里开始亏本</h2>
+
+<p>把单树和森林在同一个深度上并排放，bagging 的净收益长这样：</p>
+
+<table>
+  <caption>重复交叉验证（5×10），单树 vs 森林，逐深度对比</caption>
+  <tr><th>max_depth</th><th class="num-col">单树 CV</th><th class="num-col">森林 CV</th><th class="num-col">bagging 净增益</th></tr>
+  <tr><td>None（满树）</td><td class="num-col">0.7656</td><td class="num-col">0.8017</td><td class="num-col hi">+3.61pp</td></tr>
+  <tr><td>10</td><td class="num-col">0.7924</td><td class="num-col">0.8207</td><td class="num-col">+2.82pp</td></tr>
+  <tr><td>8</td><td class="num-col">0.8007</td><td class="num-col">0.8267</td><td class="num-col">+2.60pp</td></tr>
+  <tr><td>6</td><td class="num-col">0.8030</td><td class="num-col">0.8240</td><td class="num-col">+2.11pp</td></tr>
+  <tr><td>5</td><td class="num-col">0.8096</td><td class="num-col">0.8260</td><td class="num-col">+1.64pp</td></tr>
+  <tr><td>4</td><td class="num-col">0.8143</td><td class="num-col">0.8223</td><td class="num-col">+0.80pp</td></tr>
+  <tr><td>3</td><td class="num-col">0.8277</td><td class="num-col">0.8063</td><td class="num-col down">−2.14pp</td></tr>
+</table>
+
+<p>规律很干净：<strong>树越深，bagging 越赚；树越浅，bagging 越亏；depth=3 处翻负。</strong></p>
+
+<p>因为树越深 → 方差越大 → 有越多东西可以削。树越浅 → 方差越接近零 → 越没东西可削，却还在付 63.2% 的代价。</p>
+
+<div class="callout">
+  <span class="label">所以"限深后才追上"的准确说法</span>
+  <p>不是"限深让森林变强了"，而是<strong>"限深让森林的单棵树不再是废物，于是投票才有意义"</strong>。满树森林的问题不是"太深"，而是<strong>每棵树烂得太多（单挑 0.7672），100 个烂人投票也只能到 0.7989</strong>。</p>
+</div>
+
+<h2><span class="num">§8</span>那到底该怎么选</h2>
+
+<ul class="rules">
+  <li><strong>数据小（几百行）、特征少</strong>（你就是这种）→ 先做<strong>单棵限深树</strong>，再考虑森林。你这个规模上，一棵 d=3 树已经打平甚至赢过森林。</li>
+  <li><strong>数据大（上万行）</strong>→ 森林的 63.2% 代价被摊薄，满树森林通常直接强过任何单树。</li>
+  <li><strong>一律先用 <code>RepeatedStratifiedKFold</code> 比</strong>。单次 CV 在 179 人的测试集上，1 个人就是 0.56pp，噪声足以让你看错 2pp 的差距。</li>
+  <li><strong>森林配 <code>max_depth</code> 不是"更保守"，而是"换一个旋钮"</strong>。调它的时候你在动 strength，不是在动 correlation。</li>
+</ul>
+
+<h2><span class="num">§9</span>检查一下</h2>
+
+<div class="quiz" data-answer="1">
+  <p class="quiz-q">森林的 bagging 主要治的是哪一种毛病？</p>
+  <ul class="quiz-opts">
+    <li>降低偏差，让每棵树更准</li>
+    <li>降低方差，让投票结果更稳</li>
+    <li>提高相关性，让树更一致</li>
+    <li>增加每棵树看到的数据量</li>
+  </ul>
+  <p class="quiz-why" hidden>Bagging 的本事是"用平均消掉随机性"，削的是方差。偏差要靠更强的基础模型或更多特征来治，投票治不了。</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="quiz-q">单棵 d=3 树换 20 个随机种子，test 分数的标准差是多少？</p>
+  <ul class="quiz-opts">
+    <li>约 0.66 个百分点</li>
+    <li>恰好是零，完全不变</li>
+    <li>约 1.7 个百分点</li>
+    <li>约 8.4 个百分点</li>
+  </ul>
+  <p class="quiz-why" hidden>测出来是 0.0000。浅树提前收手，前几层切点与满树相同，走不到 <code>random_state</code> 能影响的位置。方差已经是零，bagging 没东西可削。</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="quiz-q">森林限深到 3 之后，CV 反而输给单棵 d=3 树。主要原因是？</p>
+  <ul class="quiz-opts">
+    <li>树之间的相关性变得太高了</li>
+    <li>每棵树只看到 63.2% 的数据</li>
+    <li>投票的树的数量还不够多</li>
+    <li>特征随机抽得太少了</li>
+  </ul>
+  <p class="quiz-why" hidden>实测 ρ 在 depth=5 时反而升高（0.596→0.688），所以不是相关性。真正的支出是每棵树只用 63.2% 的样本，基础变弱；而浅树几乎没有方差可供抵消，净结果是亏。</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="quiz-q">满树森林的 test 比满树单棵高 4.5pp，这个提升来自哪里？</p>
+  <ul class="quiz-opts">
+    <li>单棵树背的题变少了</li>
+    <li>训练数据被扩大了</li>
+    <li>100 棵树的错误互相抵消</li>
+    <li>分裂点被重新计算了</li>
+  </ul>
+  <p class="quiz-why" hidden>森林 train 分数 .9789 和满树单棵一模一样 —— 一点都没少背。提升全部来自投票：单棵平均 0.7672，投票后 0.7989。</p>
+</div>
+
+<div class="task">
+  <span class="label">练习 · 20 分钟</span>
+  <p>打开 <code>exercises/phase2/lesson4_random_forest.py</code>，加一个「任务 5」：</p>
+  <ol>
+    <li>用 <code>RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=0)</code> 跑三种模型：单树 d=3、森林满树、森林 d=5。打出 mean 和 std。</li>
+    <li>再算一次"单棵树换 20 个种子"的 test 标准差，分别对 d=3 和满树。确认是不是 0 和 0.0066。</li>
+    <li>用一句话写在注释里：<strong>为什么加深会赢、限深会输。</strong></li>
+  </ol>
+  <p>验收标准：你自己跑出来的数字要和本课表格对得上（允许 ±0.01 的随机差异）。</p>
+</div>
+
+<div class="ask-teacher">
+  <strong>有问题随时问我。</strong> 比如"那 Bagging vs Boosting 的区别在哪"、"为什么 GBDT 不需要限深也不容易过拟合"、"我的数据只有 200 行，到底该用哪个" —— 这些都在下一课的范围内，但你现在就可以问。
+</div>
+
+<footer>
+  <h2>主要参考</h2>
+  <ul>
+    <li><a href="https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm">Breiman &amp; Cutler, <em>Random Forests</em>（伯克利官方）</a> —— 本课 §2 的直接出处。定义、两个旋钮、OOB 都在这里，是原始作者的权威说明。</li>
+    <li><a href="https://scikit-learn.org/stable/modules/ensemble.html#forest">scikit-learn · Forests of randomized trees</a> —— 实现细节与 <code>max_features</code> 默认值（分类 = <code>sqrt</code>，你在 6 个特征上等于每次只挑 2 个）。</li>
+    <li><a href="https://www.stat.berkeley.edu/~breiman/randomforest2001.pdf">Breiman (2001), <em>Random Forests</em>, Machine Learning 45:5–32</a> —— 原始论文，含方差上界 ρσ² + (1−ρ)σ²/B 的推导。</li>
+  </ul>
+
+  <h2>相关</h2>
+  <ul>
+    <li><a href="../reference/random-forest-cheatsheet.html">随机森林速查卡</a> —— 参数、默认值、诊断信号</li>
+    <li><a href="0001-bagging-only-fixes-variance.html">本课编号 0001</a></li>
+    <li>上一课：交叉验证（<code>notes/phase2_lesson3.md</code>）</li>
+  </ul>
+</footer>
+
+</body>
+</html>

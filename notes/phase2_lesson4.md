@@ -1,6 +1,6 @@
 # 阶段 2 · 第四课教材：随机森林——让 100 棵树投票
 
-> 配套练习：`ex_phase2_lesson4_random_forest.py` · 新 API：`sklearn.ensemble.RandomForestClassifier`
+> 配套练习：`exercises/phase2/lesson4_random_forest.py` · 新 API：`sklearn.ensemble.RandomForestClassifier`
 
 ---
 

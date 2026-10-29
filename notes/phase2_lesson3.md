@@ -1,6 +1,6 @@
 # 阶段 2 · 周日轻课教材：交叉验证（Cross-Validation）
 
-> 配套练习：`ex_phase2_lesson3_crossval.py` · 周日 = 周回顾（5 分钟）+ 轻量新课（20 分钟）
+> 配套练习：`exercises/phase2/lesson3_crossval.py` · 节奏见 `SCHEDULE.md`
 
 ---
 
