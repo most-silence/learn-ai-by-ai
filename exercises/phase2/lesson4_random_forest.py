@@ -12,7 +12,7 @@
 # 开场复习（凭记忆，口答）：
 #   R1 cross_val_score 返回什么？mean 和 std 各代表什么？ 交叉验证后预测的数组，每个值代表一次考试结果，平均数代表这几次考试的平均水平，std代表标准差 即结果偏离程度以及稳定性
 #   R2 混淆矩阵里 FN 是什么含义（用 Titanic 的话说）？ 预测死亡但实际生还的人
-#   R3 森林的"集体智慧"靠哪两个随机？（教材§1）train_test_split(random_state),model(random_state)
+#   R3 森林的"集体智慧"靠哪两个随机？（教材§1）数据随机、特征随机
 import pandas as pd
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -36,7 +36,7 @@ model_forest = RandomForestClassifier(n_estimators=100, random_state=42)
 model_forest.fit(X_train, y_train)
 pred_forest =  model_forest.predict(X_test)
 
-model_tree = DecisionTreeClassifier(random_state=42)
+model_tree = DecisionTreeClassifier(random_state=42, max_depth=3)
 model_tree.fit(X_train, y_train)
 pred_tree =  model_tree.predict(X_test)
 
@@ -47,6 +47,7 @@ pred_tree =  model_tree.predict(X_test)
 # 你的代码：
 print(dict(zip(X.columns, model_forest.feature_importances_)))
 print(f"forest_train_accuracy={model_forest.score(X_train, y_train):.4f}\nforest_test_accuracy={model_forest.score(X_test, y_test):.4f}")
+print(f"tree_train_accuracy={model_tree.score(X_train, y_train):.4f}\ntree_test_accuracy={model_tree.score(X_test, y_test):.4f}")
 
 # ── 任务 3：CV 裁判——森林 vs depth=3 单树 ───────────────
 # 要做：两个模型各做 cv=5 交叉验证，打印各自的 mean 和 std
