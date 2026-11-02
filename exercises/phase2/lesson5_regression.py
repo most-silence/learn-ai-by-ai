@@ -6,8 +6,8 @@
 # 主题：LinearRegression / coef·intercept / 二维坑(双层括号) / R² 三档口诀 / tips 数据集
 #
 # 开场复习（凭记忆，口答）：
-#   R1 森林 vs 单棵树：test 分数谁高？train-test 差距谁小？
-#   R2 R² 还没学——先猜：R²=0 的模型是什么水平？（学完教材§4 再核对）
+#   R1 森林 vs 单棵树：test 分数谁高？train-test 差距谁小？单棵树的分数可能更高，总体上来说train-test森林的差距更小，投票减少了偏见，减少了过拟合
+#   R2 R² 还没学——先猜：R²=0 的模型是什么水平？（学完教材§4 再核对）还没学时：不太懂 R^2是啥
 #   R3 第 1 天口诀："会不会还款"和"还款金额"分别是什么学习问题？
 import pandas as pd
 from sklearn.model_selection import train_test_split
